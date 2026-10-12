@@ -1,6 +1,6 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import {
-  Activity, Apple, ArrowRight, Bell, Check, ChevronDown, CircleHelp,
+  Activity, Apple, ArrowRight, Bell, Check, CircleHelp,
   Dumbbell, Eye, EyeOff, HeartPulse, LayoutDashboard, LogOut, Menu, MessageSquare,
   Plus, Settings, ShieldCheck, Trophy, UserRound, Users, X,
 } from 'lucide-react';
@@ -109,7 +109,7 @@ function Overview({ account, role, token, onNavigate }) {
     });
     return () => { cancelled = true; };
   }, [role, token]);
-  const firstName = account?.displayName?.split(' ')[0] || (role === 'COACH' ? 'Coach' : 'Arjun');
+  const firstName = account?.displayName?.trim().split(' ')[0];
   const isCoach = role === 'COACH';
   const shortcuts = isCoach
     ? [
@@ -125,7 +125,7 @@ function Overview({ account, role, token, onNavigate }) {
   return <section className="simple-dashboard">
     <header className="simple-dashboard-heading">
       <span className="eyebrow">{isCoach ? 'COACH WORKSPACE' : 'PLAYER DASHBOARD'}</span>
-      <h1>Welcome back, {firstName}</h1>
+      <h1>{firstName ? `Welcome back, ${firstName}` : 'Welcome to AthleteTrack'}</h1>
       <p>{isCoach ? 'Manage your players and coaching tasks from one place.' : 'A simple overview of your training and wellbeing.'}</p>
     </header>
     <section className="dashboard-summary">
@@ -215,6 +215,20 @@ function AuthDialog({ close, signedIn, role }) {
   </div>;
 }
 
+function LogoutConfirmation({ cancel, confirm }) {
+  return <div className="modal-backdrop" onMouseDown={(event) => event.target === event.currentTarget && cancel()}>
+    <section className="modal logout-modal" role="dialog" aria-modal="true" aria-labelledby="logout-heading" aria-describedby="logout-message">
+      <span className="eyebrow">ATHLETETRACK</span>
+      <h2 id="logout-heading">Confirm Logout</h2>
+      <p id="logout-message">Are you sure you want to sign out of AthleteTrack?</p>
+      <div className="logout-actions">
+        <button className="secondary" autoFocus onClick={cancel}>Continue</button>
+        <button className="primary logout-confirm-button" onClick={confirm}>Sign out</button>
+      </div>
+    </section>
+  </div>;
+}
+
 function Profile({ token, account }) {
   const [data, setData] = useState(null);
   const [edit, setEdit] = useState(false);
@@ -267,7 +281,7 @@ function Profile({ token, account }) {
     {error && <div className="error">{error}</div>}
     {edit && <form className="panel form-grid" onSubmit={save}>{fields.map(([key, label]) => <label key={key}>{label}<input value={form[key]} onChange={(event) => setForm({ ...form, [key]: event.target.value })} type={['age', 'heightCm', 'weightKg'].includes(key) ? 'number' : 'text'} {...numericFieldConstraints[key]} {...(textFieldMaxLengths[key] ? { maxLength: textFieldMaxLengths[key] } : {})} /></label>)}<div className="form-actions"><button type="button" className="secondary" onClick={() => setEdit(false)}>Cancel</button><button className="primary">Save profile</button></div></form>}
     <div className="cards">
-      <article className="panel info-card"><UserRound /><div><strong>{data?.displayName || account.displayName}</strong><p>{data?.email || account.email} · Player ID #{data?.userId || account.id} · {data?.sport || 'Sport not set'} · {data?.age ? `Age ${data.age}` : 'Age not set'}</p></div></article>
+      <article className="panel info-card"><UserRound /><div><strong>{data?.displayName?.trim() || account.displayName.trim() || 'Name not provided'}</strong><p>{data?.email || account.email} · Player ID #{data?.userId || account.id} · {data?.sport || 'Sport not set'} · {data?.age ? `Age ${data.age}` : 'Age not set'}</p></div></article>
       <article className="panel info-card"><Activity /><div><strong>Fitness measurements</strong><p>{data?.heightCm ? `${data.heightCm} cm` : 'Height not set'} · {data?.weightKg ? `${data.weightKg} kg` : 'Weight not set'} · BMI {data?.bmi ?? '—'}</p></div></article>
       <article className="panel info-card"><HeartPulse /><div><strong>Wellness goals</strong><p>{data?.goal || 'Add your wellness goals'}</p></div></article>
     </div>
@@ -280,7 +294,7 @@ function SettingsPage({ account, role, onNavigate, onSignIn, onSignOut }) {
     <article className="panel utility-card">
       <div className="utility-card-heading"><span className="utility-icon"><UserRound size={19} /></span><div><strong>Account</strong><small>Your AthleteTrack sign-in</small></div></div>
       <dl className="account-details">
-        <div><dt>Name</dt><dd>{account?.displayName || 'Sample account'}</dd></div>
+        <div><dt>Name</dt><dd>{account?.displayName || 'Not provided'}</dd></div>
         <div><dt>Email</dt><dd>{account?.email || 'Not signed in'}</dd></div>
         <div><dt>Workspace</dt><dd>{role === 'COACH' ? 'Coach' : 'Player'}</dd></div>
       </dl>
@@ -512,8 +526,10 @@ export default function App() {
   const [role, setRole] = useState(() => auth?.account.role || 'PLAYER');
   const [active, setActive] = useState('Overview');
   const [showAuth, setShowAuth] = useState(false);
+  const [showLogoutConfirmation, setShowLogoutConfirmation] = useState(false);
   const [mobile, setMobile] = useState(false);
   const [toast, setToast] = useState('');
+  const logoutInProgress = useRef(false);
   const notify = (message) => { setToast(message); window.setTimeout(() => setToast(''), 3000); };
   const signOut = () => {
     window.sessionStorage.removeItem(authSessionKey);
@@ -521,9 +537,26 @@ export default function App() {
     setRole('PLAYER');
     setActive('Overview');
     setShowAuth(false);
+    setShowLogoutConfirmation(false);
     setMobile(false);
     notify('You have been signed out.');
   };
+  const requestSignOut = () => {
+    if (auth && !showLogoutConfirmation && !logoutInProgress.current) setShowLogoutConfirmation(true);
+  };
+  const confirmSignOut = () => {
+    if (!auth || !showLogoutConfirmation || logoutInProgress.current) return;
+    logoutInProgress.current = true;
+    signOut();
+  };
+  useEffect(() => {
+    if (!showLogoutConfirmation) return undefined;
+    const closeOnEscape = (event) => {
+      if (event.key === 'Escape') setShowLogoutConfirmation(false);
+    };
+    window.addEventListener('keydown', closeOnEscape);
+    return () => window.removeEventListener('keydown', closeOnEscape);
+  }, [showLogoutConfirmation]);
   useEffect(() => {
     const handleExpiredSession = () => {
       signOut();
@@ -544,10 +577,29 @@ export default function App() {
     window.sessionStorage.setItem(authSessionKey, JSON.stringify(result));
     setAuth(result);
     setRole(result.account.role);
+    logoutInProgress.current = false;
     setShowAuth(false);
+    setShowLogoutConfirmation(false);
     setActive('Overview');
   };
   const items = navigation[role];
+  if (!auth) return <div className="public-app">
+    <header className="public-header">
+      <div className="logo"><Activity size={23} /><div><strong>ATHLETE<span>TRACK</span></strong><small>PERFORMANCE &amp; WELLNESS</small></div></div>
+      <button className="primary" onClick={() => setShowAuth(true)}>Sign in or create account</button>
+    </header>
+    <main className="public-main">
+      <section className="public-welcome">
+        <span className="eyebrow">ATHLETE PERFORMANCE &amp; WELLBEING</span>
+        <h1>Welcome to AthleteTrack</h1>
+        <p>A simple platform to monitor athletic performance, training, and wellbeing.</p>
+        <button className="primary" onClick={() => setShowAuth(true)}>Get started <ArrowRight size={16} /></button>
+      </section>
+    </main>
+    <footer className="public-footer">© {new Date().getFullYear()} AthleteTrack</footer>
+    {showAuth && <AuthDialog close={() => setShowAuth(false)} signedIn={login} role={role} />}
+    {toast && <div className="toast"><Check size={16}/>{toast}</div>}
+  </div>;
   return <div className="app">
     {mobile && <button className="scrim" aria-label="Close menu" onClick={() => setMobile(false)} />}
     <aside className={`sidebar ${mobile ? 'open' : ''}`}>
@@ -560,21 +612,22 @@ export default function App() {
         <NextTournament token={auth?.token} onNavigate={(section) => section === 'Sign in' ? setShowAuth(true) : navigate(section)} />
         <button className={`nav-item ${active === 'Settings' ? 'active' : ''}`} onClick={() => { setActive('Settings'); setMobile(false); }}><Settings size={18} />Settings</button><button className={`nav-item ${active === 'Help center' ? 'active' : ''}`} onClick={() => { setActive('Help center'); setMobile(false); }}><CircleHelp size={18} />Help center</button>
         {auth && <button className="nav-item sidebar-sign-out" onClick={signOut}><LogOut size={18} />Sign out</button>}
-        <div className="sidebar-user"><span className="avatar">{auth?.account.displayName?.slice(0, 1) || (role === 'COACH' ? 'C' : 'P')}</span><div><strong>{auth?.account.displayName || (role === 'COACH' ? 'Coach demo' : 'Player demo')}</strong><small>{auth?.account.email || 'Sample dashboard'}</small></div></div>
+        <div className="sidebar-user"><span className="avatar">{auth.account.displayName.trim().slice(0, 1) || (role === 'COACH' ? 'C' : 'P')}</span><div><strong>{auth.account.displayName.trim() || (role === 'COACH' ? 'Coach account' : 'Player account')}</strong><small>{auth.account.email || 'Email not provided'}</small></div></div>
       </div>
     </aside>
     <main className="main">
       <header className="topbar">
         <button className="icon mobile-toggle" onClick={() => setMobile(true)} aria-label="Open navigation"><Menu /></button>
-        <div className="topbar-title"><strong>{active === 'Overview' ? 'Dashboard' : active}</strong><small>Welcome back, {auth?.account.displayName?.split(' ')[0] || (role === 'COACH' ? 'Coach' : 'Arjun')}! Keep pushing your limits.</small></div>
+        <div className="topbar-title"><strong>{active === 'Overview' ? 'Dashboard' : active}</strong><small>{auth.account.displayName?.trim() ? `Welcome back, ${auth.account.displayName.trim().split(' ')[0]}! Keep pushing your limits.` : 'Your training and wellbeing workspace.'}</small></div>
         <div className="topbar-actions"><button className="icon notification-button" aria-label="Notifications" onClick={() => notify('You’re all caught up!')}><Bell size={18} /><i /></button>
-          {auth ? <button className="account-button" onClick={signOut} aria-label="Sign out" title="Sign out"><span className="avatar">{auth.account.displayName.slice(0, 1)}</span><span><strong>{auth.account.displayName}</strong><small>{role === 'COACH' ? 'Coach' : 'Player'}</small></span><LogOut size={14} /></button> : <><button className="secondary preview-role" onClick={() => setRole(role === 'PLAYER' ? 'COACH' : 'PLAYER')}><ChevronDown size={14} /> Preview {role === 'PLAYER' ? 'coach' : 'player'}</button><button className="primary" onClick={() => setShowAuth(true)}>Sign in</button></>}
+          <button className="account-button" onClick={requestSignOut} aria-label="Sign out" title="Sign out"><span className="avatar">{auth.account.displayName.trim().slice(0, 1) || (role === 'COACH' ? 'C' : 'P')}</span><span><strong>{auth.account.displayName.trim() || (role === 'COACH' ? 'Coach account' : 'Player account')}</strong><small>{role === 'COACH' ? 'Coach' : 'Player'}</small></span><LogOut size={14} /></button>
         </div>
       </header>
-      {active === 'Overview' ? <Overview account={auth?.account} role={role} token={auth?.token} onNavigate={navigate} /> : active === 'My profile' ? <Profile token={auth?.token} account={auth?.account || {displayName:'Sample Player',email:''}} /> : active === 'Settings' ? <SettingsPage account={auth?.account} role={role} onNavigate={navigate} onSignIn={() => setShowAuth(true)} onSignOut={signOut} /> : active === 'Help center' ? <HelpCenter account={auth?.account} role={role} onNavigate={navigate} onSignIn={() => setShowAuth(true)} /> : active === 'My players' && role === 'COACH' ? <CoachPlayers key={auth?.account.id} token={auth?.token} notify={notify} /> : <DataView key={`${active}-${auth?.account.id || 'sample'}`} section={active} role={role} token={auth?.token} notify={notify} onSignIn={() => setShowAuth(true)} />}
-      <footer className="footer"><span>© {new Date().getFullYear()} AthleteTrack</span><span><i/> {auth ? 'Account connected' : 'Sample preview'}</span><button onClick={() => auth ? signOut() : setShowAuth(true)}>{auth ? 'Sign out' : 'Sign in'}</button></footer>
+      {active === 'Overview' ? <Overview account={auth.account} role={role} token={auth.token} onNavigate={navigate} /> : active === 'My profile' ? <Profile token={auth.token} account={auth.account} /> : active === 'Settings' ? <SettingsPage account={auth.account} role={role} onNavigate={navigate} onSignIn={() => setShowAuth(true)} onSignOut={requestSignOut} /> : active === 'Help center' ? <HelpCenter account={auth.account} role={role} onNavigate={navigate} onSignIn={() => setShowAuth(true)} /> : active === 'My players' && role === 'COACH' ? <CoachPlayers key={auth.account.id} token={auth.token} notify={notify} /> : <DataView key={`${active}-${auth.account.id}`} section={active} role={role} token={auth.token} notify={notify} onSignIn={() => setShowAuth(true)} />}
+      <footer className="footer"><span>© {new Date().getFullYear()} AthleteTrack</span><span><i/> Account connected</span><button onClick={requestSignOut}>Sign out</button></footer>
     </main>
     {showAuth && <AuthDialog close={() => setShowAuth(false)} signedIn={login} role={role} />}
+    {showLogoutConfirmation && <LogoutConfirmation cancel={() => setShowLogoutConfirmation(false)} confirm={confirmSignOut} />}
     {toast && <div className="toast"><Check size={16}/>{toast}</div>}
   </div>;
 }

@@ -218,6 +218,26 @@ body{background:#f7f9fc;color:var(--text)}
 .utility-card{padding:20px;margin-bottom:14px}
 .utility-card-heading{display:flex;align-items:center;gap:12px}
 .utility-icon{width:40px;height:40px;flex:none;display:grid;place-items:center;border-radius:10px;background:#f0edff;color:var(--purple)}
+.public-app{min-height:100vh;display:flex;flex-direction:column;background:radial-gradient(ellipse at 75% 42%,#efedff 0,transparent 43%),#f7f8fc}
+.public-header{height:82px;display:flex;align-items:center;justify-content:space-between;padding:0 clamp(20px,7vw,96px);border-bottom:1px solid #eaebf1;background:#ffffffd9}
+.public-header .logo{margin:0}
+.public-header .primary,.public-welcome .primary{min-height:42px;padding:0 17px;font-size:12px}
+.public-main{flex:1;display:grid;place-items:center;padding:48px 24px}
+.public-welcome{width:min(100%,760px);padding:64px 58px;border:1px solid #e9e8f4;border-radius:18px;background:#ffffffd9;box-shadow:0 18px 55px #30334a0c}
+.public-welcome .eyebrow{color:var(--purple);font-size:10px}
+.public-welcome h1{margin:15px 0 12px;color:#28293b;font:800 clamp(30px,5vw,48px) Manrope,sans-serif;letter-spacing:-1.7px}
+.public-welcome p{max-width:510px;margin:0 0 26px;color:#77798d;font-size:16px;line-height:1.7}
+.public-welcome .primary{gap:9px}
+.public-footer{padding:19px 24px;border-top:1px solid var(--line);color:#a0a1af;text-align:center;font-size:10px}
+.logout-modal{width:min(100%,420px);padding:30px}
+.logout-modal .eyebrow{color:var(--purple)}
+.logout-modal h2{margin:10px 0 8px}
+.logout-modal>p{margin:0;color:#77798d;font-size:13px;line-height:1.6}
+.logout-actions{display:flex;justify-content:flex-end;gap:9px;margin-top:24px}
+.logout-actions button{min-height:38px;padding:0 15px;font-size:11px}
+.logout-confirm-button{background:#b84b58}
+.logout-confirm-button:hover{background:#a43d49}
+@media(max-width:520px){.public-header{height:68px;padding:0 16px}.public-header .logo{font-size:15px}.public-header .logo svg{width:19px;height:19px}.public-header .logo small{font-size:7px}.public-header .primary{min-height:35px;padding:0 10px;font-size:10px}.public-main{padding:28px 16px}.public-welcome{padding:36px 24px}.public-welcome h1{letter-spacing:-1px}.public-welcome p{font-size:14px}.logout-modal{padding:26px 22px}}
 .utility-card-heading>div{display:flex;flex-direction:column;gap:5px}
 .utility-card-heading strong,.help-signin strong{color:#303146;font-size:14px}
 .utility-card-heading small{color:var(--muted);font-size:11px}
